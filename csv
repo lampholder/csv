@@ -1,0 +1,90 @@
+#!/usr/bin/python
+# This Python file uses the following encoding: utf-8
+import csv
+import sys
+from optparse import OptionParser
+
+parser = OptionParser()
+parser.add_option("-f", "--fields", dest="fields", help="Comma separated list of fields to display (names or numbers). Fields are indexed starting from 1 (as per cut).")
+parser.add_option("-s", "--stripquotes", action="store_true", dest="stripquotes", help="Strip the quotes in output")
+parser.add_option("-l", "--listfields", action="store_true", dest="listfields", help="Display the field names (where available)")
+parser.add_option("-k", "--skiplines", dest="skipcount", help="Skip the first n lines", default=0, type="int")
+parser.add_option("-d", "--header", action="store_true", dest="header", help="Treat first line of input as header - defaults to 'true' when reading from file and 'false' when reading from stdin", default=False)
+parser.add_option("-n", "--no-header", action="store_true", dest="noheader", help="Do not treat first line of input - defaults to 'false' when reading from file and 'true' when reading from stdin", default=False)
+
+(options, args) = parser.parse_args()
+
+input_source = None
+if (len(args) > 0):
+  input_source = 'file'
+  fin = open(args[0], 'rb')
+else:
+  input_source = 'stdin'
+  fin = sys.stdin
+
+csvin = csv.reader(fin)
+for a in range(options.skipcount):
+  csvin.next()
+
+if (input_source == 'file' and not options.noheader) or (options.header):
+  head = csvin.next()
+else:
+  head = csvin.next() # This is obviously a hack
+
+if options.listfields:
+    print ", ".join(map (lambda x: "[%d] %s" % (head.index(x) + 1, x), head))
+    exit(0)  
+
+if options.fields == None:
+    print "No fields specified"
+    exit(1)
+
+fields = options.fields.split(',')
+
+if "0" in fields:
+    print "csv: fields and positions are numbered from 1 (like cut)"
+    print "Try `csv --help' for more information."
+    exit(1)
+
+def is_number(s):
+    try:
+        int(s)
+        return True
+    except ValueError:
+        return False
+
+index = 0
+for field in fields:
+    if field in head:
+        fields[index] = head.index(field) + 1
+        index += 1
+    elif not is_number(field) or int(field) > len(head):
+        print >> sys.stderr, ""
+        print >> sys.stderr, "    ▄██████████████▄▐█▄▄▄▄█▌"
+        print >> sys.stderr, "    ██████▌▄▌▄▐▐▌███▌▀▀██▀▀"
+        print >> sys.stderr, "    ████▄█▌▄▌▄▐▐▌▀███▄▄█▌"
+        print >> sys.stderr, "    ▄▄▄▄▄██████████████▀"
+        print >> sys.stderr, ""
+        print >> sys.stderr, "FIELD ERROR: %s is not a valid field name/number" % field
+        exit(1)
+
+for row in csvin:
+    if fields:
+        count = 0
+        for field in fields:
+            if count > 0: sys.stdout.write(",")
+            value = ""
+            if len(row) >= int(field):                                                                                                                       
+                value = row[int(field)-1]
+            if options.stripquotes: sys.stdout.write(value)
+            else: sys.stdout.write("\"%s\"" % value)
+            count += 1
+        print
+    else:
+        count = 0
+        for field in row:
+            if count > 0: sys.stdout.write(",")
+            if options.stripquotes: sys.stdout.write(field)
+            else: sys.stdout.write("\"%s\"" % field)
+            count += 1
+        print
